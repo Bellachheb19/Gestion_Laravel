@@ -32,17 +32,42 @@ class StudentController extends Controller
             'phone' => 'nullable|string',
         ]);
 
-        User::create([
-            'nom' => $request->nom,
-            'prenom' => $request->prenom,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'role' => 'student',
-            'apogee' => $request->apogee,
-            'phone' => $request->phone,
-        ]);
+        // 1. Créer l'utilisateur dans Firebase via l'API REST
+        // Note: On utilise l'API Key récupérée de votre configuration Firebase
+        $apiKey = "AIzaSyAY1cgHEVRYDXvnjMgGI__Riq00yk-FRGQ";
+        $firebaseUrl = "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" . $apiKey;
 
-        return redirect()->route('admin.students.index')->with('success', 'Étudiant créé avec succès.');
+        try {
+            $response = \Illuminate\Support\Facades\Http::post($firebaseUrl, [
+                'email' => $request->email,
+                'password' => $request->password,
+                'returnSecureToken' => true
+            ]);
+
+            if ($response->failed()) {
+                $error = $response->json()['error']['message'] ?? 'Erreur inconnue lors de la création Firebase.';
+                return back()->withInput()->withErrors(['email' => 'Erreur Firebase: ' . $error]);
+            }
+
+            $firebaseUid = $response->json()['localId'];
+
+            // 2. Créer l'utilisateur dans PostgreSQL avec le Firebase UID
+            User::create([
+                'nom' => $request->nom,
+                'prenom' => $request->prenom,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'role' => 'student',
+                'apogee' => $request->apogee,
+                'phone' => $request->phone,
+                'google_id' => $firebaseUid,
+            ]);
+
+            return redirect()->route('admin.students.index')->with('success', 'Étudiant créé et synchronisé avec Firebase.');
+
+        } catch (\Exception $e) {
+            return back()->withInput()->withErrors(['email' => 'Une erreur est survenue: ' . $e->getMessage()]);
+        }
     }
 
     public function edit(User $student)

@@ -52,9 +52,13 @@ class AuthController extends Controller
             'apogee' => 'nullable|string',
             'phone' => 'nullable|string',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'google_id' => 'required|string',
         ]);
 
         if ($validator->fails()) {
+            if ($request->expectsJson()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
             return back()->withErrors($validator)->withInput();
         }
 
@@ -68,13 +72,21 @@ class AuthController extends Controller
             'prenom' => $request->prenom,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => 'student', // Default role for signup
+            'role' => 'student',
             'apogee' => $request->apogee,
             'phone' => $request->phone,
             'photo' => $photoPath,
+            'google_id' => $request->google_id,
         ]);
 
         Auth::login($user);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'redirect' => '/student/profile'
+            ]);
+        }
 
         return redirect('/student/profile');
     }
