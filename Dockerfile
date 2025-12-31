@@ -24,7 +24,8 @@ WORKDIR /var/www
 # Copy existing application directory contents
 COPY . .
 
-# Install dependencies
+# Install dependencies (Disabling timeout for slow connections)
+ENV COMPOSER_PROCESS_TIMEOUT=0
 RUN composer install --no-interaction --no-plugins --no-scripts
 
 # Set permissions
